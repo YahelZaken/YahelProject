@@ -1,0 +1,16 @@
+#ignore all files
+*
+
+#whitelist
+!.gitignore
+!*/
+!.myfuncs
+!*.c
+!*.h
+!*.md
+!*makefile
+!*.cpp
+!*.hpp
+!*.py
+!*.html
+
