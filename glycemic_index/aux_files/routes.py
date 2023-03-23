@@ -4,11 +4,7 @@ from aux_files.models import FoodDetails, FoodGroup, Patient
 from sqlalchemy import func
 from aux_files.models import User
 from functools import wraps
-
-#??????????????????????????????
-"""Flask Login Example and instagram fallowing find"""
-
-from flask import Flask, url_for, render_template, request, redirect, session
+from flask import url_for, render_template, request, redirect, session
 from flask_sqlalchemy import SQLAlchemy
 new_user = User(username='admin', password='password123', is_admin=True)
 
@@ -22,7 +18,6 @@ def admin_required(f):
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
-    """ Session control"""
     if not session.get('logged_in'):
         return render_template('index.html')
     else:
