@@ -5,8 +5,8 @@ from sqlalchemy import func
 from aux_files.models import User
 from functools import wraps
 from flask import url_for, render_template, request, redirect, session
-from flask_sqlalchemy import SQLAlchemy
-new_user = User(username='admin', password='password123', is_admin=True)
+
+#new_user = User(username='admin', password='password123', is_admin=True)
 
 def admin_required(f):
     @wraps(f)
@@ -18,11 +18,8 @@ def admin_required(f):
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
-    if not session.get('logged_in'):
-        return render_template('index.html')
-    else:
-        return render_template('index.html')
 
+        return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -32,16 +29,34 @@ def login():
     else:
         name = request.form['username']
         passw = request.form['password']
-        try:
-            data = User.query.filter_by(username=name, password=passw).first()
-            if data is not None:
-                session['logged_in'] = True
-                return redirect(url_for('home'))
-            else:
-                return 'Username/Password is wrong'
-        except:
+    
+        user = User.query.filter_by(username=name, password=passw).first()
+        if user is not None:
+            session['user'] = {
+                'id': user.id,
+                'username': user.username,
+                'is_admin': user.is_admin
+            }
+            session['logged_in'] = True
+            return redirect(url_for('home'))
+        else:
             return 'Username/Password is wrong'
-
+"""
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+    else:
+        name = request.form['username']
+        passw = request.form['password']
+    
+        data = User.query.filter_by(username=name, password=passw).first()
+        if data is not None:
+            session['logged_in'] = True
+            return redirect(url_for('home'))
+        else:
+            return 'Username/Password is wrong'
+"""
 
 @app.route('/register/', methods=['GET', 'POST'])
 def register():
@@ -62,13 +77,6 @@ def logout():
     """Logout Form"""
     session['logged_in'] = False
     return redirect(url_for('home'))
-
-
-"""
-@app.route('/')
-def home():
-    return 'Welcome to the Food GI Calculator!'
-"""
 
 @app.route('/food-group/food', methods=['GET']) 
 def food_group():
@@ -98,10 +106,10 @@ def food_group_gi():
     return jsonify(food_groups)
 
 @app.route('/recommended_food_groups/under', methods=['GET']) 
-def recommended_food_groups_under_num():
-    num = float(request.args.get('num'))
+def recommended_food_groups_under_gi():
+    gi = float(request.args.get('gi'))
     result = db.session.query(FoodGroup.group_name, FoodDetails.food).join\
-    (FoodDetails).filter(FoodDetails.glycemic_index < num).all()
+    (FoodDetails).filter(FoodDetails.glycemic_index < gi).all()
     
     element = []
     for row in result:
@@ -112,10 +120,10 @@ def recommended_food_groups_under_num():
     return jsonify(element)
 
 @app.route('/recommended_food_groups/above', methods=['GET']) 
-def recommended_food_groups_above_num():
-    num = float(request.args.get('num'))
+def recommended_food_groups_above_gi():
+    gi = float(request.args.get('gi'))
     result = db.session.query(FoodGroup.group_name, FoodDetails.food).join\
-    (FoodDetails).filter(FoodDetails.glycemic_index > num).all()  
+    (FoodDetails).filter(FoodDetails.glycemic_index > gi).all()  
     element = []
     for row in result:
         element.append({
@@ -141,7 +149,7 @@ def average():
 def min():
     result = db.session.query(FoodDetails.food).filter\
         (FoodDetails.glycemic_index == db.session.query\
-         (db.func.min(FoodDetails.glycemic_index))).all()
+         (db.func.min(FoodDetails.glycemic_index)))#.all()
 
     return jsonify(result[0]._asdict())
 
@@ -150,7 +158,7 @@ def min():
 def max():
     result = db.session.query(FoodDetails.food).filter\
         (FoodDetails.glycemic_index == db.session.query\
-         (db.func.max(FoodDetails.glycemic_index))).all()
+         (db.func.max(FoodDetails.glycemic_index)))#.all()
 
     return jsonify(result[0]._asdict())
 
@@ -269,10 +277,45 @@ def update_patients():
     
     return jsonify({"message": "patients updated successfully"})
 
+@app.route('/food-details/search', methods=['GET'])
+def search_food_by_name():
+    food_name = request.args.get('food_name')
+    if not food_name:
+        return jsonify({'message': "Please provide a food name to search for."}), 400
+
+    result = FoodDetails.query.filter(FoodDetails.food.ilike(f"%{food_name}%")).all()
+    if not result:
+        return jsonify({'message': f"No food found with name '{food_name}'."}), 404
+
+    foods = []
+    for food in result:
+        foods.append({
+            'food': food.food,
+            'glycemic_index': food.glycemic_index
+        })
+    return jsonify(foods)
+
+@app.route('/meal/gi', methods=['POST'])
+def calculate_meal_gi():
+    meal_foods = request.get_json()
+    total_gi = 0
+    total_items = 0
+    
+    for food in meal_foods:
+        result = FoodDetails.query.filter_by(food=food['food']).first()
+        if result:
+            total_gi += result.glycemic_index * food['amount']
+            total_items += food['amount']
+
+    if total_gi == 0:
+        return jsonify({'message': 'No valid foods were found in the meal.'}), 400
+
+    return jsonify({'meal_gi': total_gi / total_items})
+
 @app.route('/food_details', methods=['PUT'])
 @admin_required
 def update_food_details():
-    id = float(request.args.get('id'))
+    id = request.args.get('id')
     f_d = FoodDetails(id)
     data = request.get_json()
     for key, value in data.items():
@@ -304,7 +347,7 @@ def delete_food_groups():
 @app.route('/food_details', methods=['DELETE'])
 @admin_required
 def delete_food_details():
-    id = float(request.args.get('id'))
+    id = request.args.get('id')
     f_d = FoodDetails.query.get(id)
     db.session.delete(f_d)
     db.session.commit()

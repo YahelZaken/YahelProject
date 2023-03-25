@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 class FoodGroup(db.Model):
     __tablename__ = 'food_groups'
     id = db.Column(db.Integer, primary_key=True)
-    group_name = db.Column(db.String(255), nullable=True)
+    group_name = db.Column(db.String(255), nullable=False)
 
     def __init__(self, group_name):
         self.group_name = group_name
@@ -23,10 +23,10 @@ class FoodDetails(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('food_groups.id'), nullable=True)
     group = relationship('FoodGroup', backref=db.backref('food_details', lazy=True))
 
-    def __init__(self, food, glycemic_index, group):
+    def __init__(self, food, glycemic_index, group_id):
         self.food = food
         self.glycemic_index = glycemic_index
-        self.group = group
+        self.group_id = group_id
 
     def to_json(self):
         return {
