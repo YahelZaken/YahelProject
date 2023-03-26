@@ -45,7 +45,6 @@ def login():
 
 @app.route('/register/', methods=['GET', 'POST'])
 def register():
-    """Register Form"""
     if request.method == 'POST':
         new_user = User(
             username=request.form['username'],
@@ -176,6 +175,79 @@ def get_foods_by_gi_range():
 
     return jsonify(element)
 
+@app.route('/meal/gi/patient', methods=['POST'])
+def calculate_meal_gi_for_patient():
+    meal_foods = request.get_json()
+    total_gi = 0
+    total_items = 0
+    
+    for food in meal_foods:
+        result = FoodDetails.query.filter_by(food=food['food']).first()
+        if result:
+            total_gi += result.glycemic_index * food['amount']
+            total_items += food['amount']
+
+    if total_gi == 0:
+        return jsonify({'message': 'No valid foods were found in the meal.'}), 400
+
+    patient_name = request.args.get('name')
+    patient = Patient.query.filter_by(patient_name=patient_name).first()
+    if not patient:
+        return jsonify({'message': 'Patient not found.'}), 404
+
+    recommended_gi = patient.recommended_glycemic_index
+
+    meal_gi = total_gi / total_items
+    if meal_gi <= recommended_gi:
+        message = "This meal is excellent for you, enjoy and keep it up!"
+    else:
+        message = "Try to change ingredients, you can use the list of foods according to the recommended glycemic index in the button below."
+
+    add_to_average = request.args.get('add_to_average')
+    if add_to_average and add_to_average.lower() == 'true':
+        if patient.average_gi is None:
+            patient.average_gi = meal_gi
+        else:
+            new_mean_gi = (patient.average_gi + meal_gi) / 2
+            patient.average_gi = new_mean_gi
+        db.session.commit()
+
+    return jsonify({'meal_gi': meal_gi, 'message': message})
+
+@app.route('/meal/gi', methods=['POST'])
+def calculate_meal_gi():
+    meal_foods = request.get_json()
+    total_gi = 0
+    total_items = 0
+    
+    for food in meal_foods:
+        result = FoodDetails.query.filter_by(food=food['food']).first()
+        if result:
+            total_gi += result.glycemic_index * food['amount']
+            total_items += food['amount']
+
+    if total_gi == 0:
+        return jsonify({'message': 'No valid foods were found in the meal.'}), 400
+
+    return jsonify({'meal_gi': total_gi / total_items})
+
+@app.route('/food-details/search', methods=['GET'])
+def search_food_by_name():
+    food_name = request.args.get('food_name')
+    if not food_name:
+        return jsonify({'message': "Please provide a food name to search for."}), 400
+
+    result = FoodDetails.query.filter(FoodDetails.food.ilike(f"%{food_name}%")).all()
+    if not result:
+        return jsonify({'message': f"No food found with name '{food_name}'."}), 404
+
+    foods = []
+    for food in result:
+        foods.append({
+            'food': food.food,
+            'glycemic_index': food.glycemic_index
+        })
+    return jsonify(foods)
 
 @app.route('/food_details/recommended_food_by_mean_sugar', methods=['GET'])
 def mean_sugar_level_gi():
@@ -259,81 +331,6 @@ def update_patients():
     db.session.commit()
     
     return jsonify({"message": "patients updated successfully"})
-
-@app.route('/food-details/search', methods=['GET'])
-def search_food_by_name():
-    food_name = request.args.get('food_name')
-    if not food_name:
-        return jsonify({'message': "Please provide a food name to search for."}), 400
-
-    result = FoodDetails.query.filter(FoodDetails.food.ilike(f"%{food_name}%")).all()
-    if not result:
-        return jsonify({'message': f"No food found with name '{food_name}'."}), 404
-
-    foods = []
-    for food in result:
-        foods.append({
-            'food': food.food,
-            'glycemic_index': food.glycemic_index
-        })
-    return jsonify(foods)
-
-@app.route('/meal/gi', methods=['POST'])
-def calculate_meal_gi():
-    meal_foods = request.get_json()
-    total_gi = 0
-    total_items = 0
-    
-    for food in meal_foods:
-        result = FoodDetails.query.filter_by(food=food['food']).first()
-        if result:
-            total_gi += result.glycemic_index * food['amount']
-            total_items += food['amount']
-
-    if total_gi == 0:
-        return jsonify({'message': 'No valid foods were found in the meal.'}), 400
-
-    return jsonify({'meal_gi': total_gi / total_items})
-
-
-@app.route('/meal/gi/patient', methods=['POST'])
-def calculate_meal_gi_for_patient():
-    meal_foods = request.get_json()
-    total_gi = 0
-    total_items = 0
-    
-    for food in meal_foods:
-        result = FoodDetails.query.filter_by(food=food['food']).first()
-        if result:
-            total_gi += result.glycemic_index * food['amount']
-            total_items += food['amount']
-
-    if total_gi == 0:
-        return jsonify({'message': 'No valid foods were found in the meal.'}), 400
-
-    patient_name = request.args.get('name')
-    patient = Patient.query.filter_by(patient_name=patient_name).first()
-    if not patient:
-        return jsonify({'message': 'Patient not found.'}), 404
-
-    recommended_gi = patient.recommended_glycemic_index
-
-    meal_gi = total_gi / total_items
-    if meal_gi <= recommended_gi:
-        message = "This meal is excellent for you, enjoy and keep it up!"
-    else:
-        message = "Try to change ingredients, you can use the list of foods according to the recommended glycemic index in the button below."
-
-    add_to_average = request.args.get('add_to_average')
-    if add_to_average and add_to_average.lower() == 'true':
-        if patient.average_gi is None:
-            patient.average_gi = meal_gi
-        else:
-            new_mean_gi = (patient.average_gi + meal_gi) / 2
-            patient.average_gi = new_mean_gi
-        db.session.commit()
-
-    return jsonify({'meal_gi': meal_gi, 'message': message})
 
 
 @app.route('/food_details', methods=['PUT'])
