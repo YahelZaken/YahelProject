@@ -12,7 +12,9 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session or not session['user']['is_admin']:
-            return jsonify({'message': 'You are not authorized to perform this action'}), 401
+            return jsonify(
+                {'message': 'You are not authorized to perform this action'}
+                ), 401
         return f(*args, **kwargs)
     return decorated_function
 
@@ -23,7 +25,6 @@ def home():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Login Form"""
     if request.method == 'GET':
         return render_template('login.html')
     else:
@@ -41,22 +42,6 @@ def login():
             return redirect(url_for('home'))
         else:
             return 'Username/Password is wrong'
-"""
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'GET':
-        return render_template('login.html')
-    else:
-        name = request.form['username']
-        passw = request.form['password']
-    
-        data = User.query.filter_by(username=name, password=passw).first()
-        if data is not None:
-            session['logged_in'] = True
-            return redirect(url_for('home'))
-        else:
-            return 'Username/Password is wrong'
-"""
 
 @app.route('/register/', methods=['GET', 'POST'])
 def register():
@@ -74,7 +59,6 @@ def register():
 
 @app.route("/logout")
 def logout():
-    """Logout Form"""
     session['logged_in'] = False
     return redirect(url_for('home'))
 
@@ -149,7 +133,7 @@ def average():
 def min():
     result = db.session.query(FoodDetails.food).filter\
         (FoodDetails.glycemic_index == db.session.query\
-         (db.func.min(FoodDetails.glycemic_index)))#.all()
+         (db.func.min(FoodDetails.glycemic_index)))
 
     return jsonify(result[0]._asdict())
 
@@ -158,7 +142,7 @@ def min():
 def max():
     result = db.session.query(FoodDetails.food).filter\
         (FoodDetails.glycemic_index == db.session.query\
-         (db.func.max(FoodDetails.glycemic_index)))#.all()
+         (db.func.max(FoodDetails.glycemic_index)))
 
     return jsonify(result[0]._asdict())
 
@@ -175,7 +159,6 @@ def get_foods_by_gi():
     
     return jsonify({'foods': foods})
 
-#/foods?min_gi=40&max_gi=70
 @app.route('/foods', methods=['GET'])
 def get_foods_by_gi_range():
     min_gi = float(request.args.get('min_gi'))
