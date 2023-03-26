@@ -42,11 +42,13 @@ class Patient(db.Model):
     patient_name = db.Column(db.String(255), nullable=True)
     mean_sugar_level = db.Column(db.Integer, nullable=True)
     recommended_glycemic_index = db.Column(db.Integer, nullable=True)
-
-    def __init__(self, patient_name, mean_sugar_level, recommended_glycemic_index):
+    average_gi = db.Column(db.Float, nullable=True)
+    
+    def __init__(self, patient_name, mean_sugar_level, average_gi):
         self.patient_name = patient_name
         self.mean_sugar_level = mean_sugar_level
-        self.recommended_glycemic_index = recommended_glycemic_index
+        self.recommended_glycemic_index = mean_sugar_level/4
+        self.average_gi = average_gi
 
     def to_json(self):
         return {
